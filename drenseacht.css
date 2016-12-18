@@ -1,0 +1,48 @@
+
+html, body, #gamearea {
+  margin: 0;
+  height: 100%;
+  width: 100%;
+}
+
+#players {
+  border: 2px #046 solid;
+  position: absolute;
+  width: 20%;
+  height: 50%;
+  right: 15px;
+  top: 15px;
+  background-color: #000;
+  background-color: rgba(0,0,0,.4);
+}
+
+body {
+  background: url("img/background.png");
+}
+
+.atom {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+}
+
+.pl1 {
+  background: url("img/blue-tile.png") no-repeat;
+}
+
+.pl2 {
+  background: url("img/red-tile.png") no-repeat;
+}
+
+.pl3 {
+  background: url("img/brown-tile.png") no-repeat;
+}
+
+.pl4 {
+  background: url("img/green-tile.png") no-repeat;
+}
+
+.pl5 {
+  background: url("img/black-tile.png") no-repeat;
+}
+
