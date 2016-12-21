@@ -58,6 +58,7 @@ function new_atom(id) {
   var element = create_atom_image('atom-' + id);
   return {
     owner: 0,
+    id: id,
     element: element,
     pos: random_position(element),
     natoms: 1 + random_int(4)
@@ -67,12 +68,13 @@ function new_atom(id) {
 var random_atoms = R.compose(R.map(new_atom), R.range(1));
 
 function atom_distance(atom1, atom2) {
-  return R.compose(Math.sqrt, R.sum,
-      R.map(function(x) {return x*x;}))(atom_direction(atom1, atom2));
+  var diff = atom_direction(atom1, atom2);
+  return Math.sqrt(R.sum(R.zipWith(R.multiply, diff, diff)));
 }
 
 function atom_direction(atom1, atom2) {
-  return R.apply(R.zipWith(R.subtract), R.map(R.prop('pos'), [atom1, atom2]));
+  var p1 = atom1.pos, p2 = atom2.pos;
+  return R.zipWith(R.subtract, p1, p2);
 }
 
 function atom_displace(atom, pos_delta) {
@@ -80,10 +82,13 @@ function atom_displace(atom, pos_delta) {
 }
 
 function nudge_away(atom, other_atom) {
+  if (atom.id === other_atom.id) return atom;
   var dist = atom_distance(atom, other_atom);
-  if (dist > ATOM_SIZE) { return atom; }
-  return atom_displace(atom, R.map(R.multiply((ATOM_SIZE - dist) / dist),
-      atom_direction(atom, other_atom)));
+  if (dist > ATOM_SIZE) return atom;
+  if (dist < 1) return atom_displace(atom, [ATOM_SIZE, 0]);
+  return atom_displace(atom,
+      R.map(R.multiply((ATOM_SIZE - dist) / (dist + 1)),
+        atom_direction(atom, other_atom)));
 }
 
 function fix_atoms(atoms) {
@@ -104,7 +109,7 @@ function random_player(number) {
 
 function new_game_state(natoms) {
   return {
-    atoms: fix_atoms(random_atoms(natoms)),
+    atoms: fix_atoms(fix_atoms(random_atoms(natoms))),
     players: R.map(random_player, R.range(1, 3)),
     prevstate: null
   };
