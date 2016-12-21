@@ -26,11 +26,6 @@ function create_atom_image(id) {
   return elem;
 }
 
-var show_atom = R.curry(function (area, atom) {
-  update_atom_view(atom);
-  area.appendChild(atom.element);
-});
-
 function update_atom_view(atom) {
   var e = atom.element;
   e.style.left = '' + Math.floor(atom.pos[0]) + 'px';
@@ -39,11 +34,23 @@ function update_atom_view(atom) {
   e.src = 'img/' + atom.natoms + '-orbit.png';
 }
 
-function show_new_stage(atoms) {
+function build_new_stage(atoms) {
   var stage = new_elem('div');
-  R.forEach(show_atom(stage), atoms);
+  atoms.forEach(function(atom) { stage.appendChild(atom.element); });
   R.forEach(R.invoker(0, 'remove'), game_area().childNodes);
   game_area().appendChild(stage);
+}
+
+// atom helpers
+
+function atom_distance(atom1, atom2) {
+  var diff = atom_direction(atom1, atom2);
+  return Math.sqrt(R.sum(R.zipWith(R.multiply, diff, diff)));
+}
+
+function atom_direction(atom1, atom2) {
+  var p1 = atom1.pos, p2 = atom2.pos;
+  return R.zipWith(R.subtract, p1, p2);
 }
 
 // stage generation
@@ -66,16 +73,6 @@ function new_atom(id) {
 }
 
 var random_atoms = R.compose(R.map(new_atom), R.range(1));
-
-function atom_distance(atom1, atom2) {
-  var diff = atom_direction(atom1, atom2);
-  return Math.sqrt(R.sum(R.zipWith(R.multiply, diff, diff)));
-}
-
-function atom_direction(atom1, atom2) {
-  var p1 = atom1.pos, p2 = atom2.pos;
-  return R.zipWith(R.subtract, p1, p2);
-}
 
 function atom_displace(atom, pos_delta) {
   return R.evolve({'pos': R.zipWith(R.add, pos_delta)}, atom);
@@ -102,7 +99,7 @@ function random_syllable() {
 
 function random_player(number) {
   return {
-    name: R.join('', R.map(random_syllable, R.repeat({}, 5))),
+    name: R.join('', R.map(random_syllable, R.repeat({}, 4))),
     number: number
   };
 }
@@ -115,17 +112,58 @@ function new_game_state(natoms) {
   };
 }
 
+// event handling
+
+var rotate = R.converge(R.append, [R.head, R.tail])
+
+function update_atom_owner(game, atom, player) {
+  return R.evolve({
+    atoms: R.map(R.when(R.propEq('id', atom.id),
+                 R.evolve({owner: R.always(player.number)}))),
+    players: rotate,
+    prevstate: R.always(game)
+  }, game);
+}
+
+function insert_new_proton(game, atom) {
+  return R.evolve({
+    atoms: R.map(R.when(R.propEq('id', atom.id), R.evolve({natoms: R.inc}))),
+    players: rotate,
+    prevstate: R.always(game)
+  }, game);
+}
+
+function handle_atom_click(game, atom) {
+  var cur_player = game.players[0];
+  if (atom.owner === 0)
+    return update_atom_owner(game, atom, cur_player);
+  if (atom.owner === cur_player.number)
+    return insert_new_proton(game, atom);
+  return game;
+}
+
+function update_game(game) {
+  game.atoms.forEach(function(atom) {
+    update_atom_view(atom);
+    atom.element.onclick = function() {
+      update_game(handle_atom_click(game, atom));
+    };
+  });
+}
+
+// initialisation
+
 function init_game() {
   var game = new_game_state(70);
-  show_new_stage(game.atoms);
-  //bind_events(game);
+  build_new_stage(game.atoms);
+  update_game(game);
 }
 
 function install_onload(f) {
   var old = document.onload;
   document.onload = function () {
     f();
-    old();
+    if (old) old();
   };
 }
 
