@@ -112,11 +112,29 @@ function new_game_state(natoms) {
   };
 }
 
+// chain reactions
+
+function handle_fissions(game) {
+  var player = R.last(game.players);
+  var reactible = R.filter(R.compose(R.lt(4), R.prop('natoms')), game.atoms);
+  if (R.isEmpty(reactible)) return game;
+  var targets = R.chain(function(atom) {
+    return R.take(4, R.tail(R.sortBy(R.partial(atom_distance, [atom]), game.atoms)));
+  }, reactible);
+  return handle_fissions(R.evolve({
+    atoms: R.map(R.compose(
+       R.when(R.contains(R.__, reactible),
+         R.evolve({ natoms: R.add(-4) })),
+       R.when(R.contains(R.__, targets),
+         R.evolve({ natoms: R.inc, owner: R.always(player.number) }))))
+  }, game));
+}
+
 // event handling
 
 var rotate = R.converge(R.append, [R.head, R.tail])
 
-function update_atom_owner(game, atom, player) {
+function update_atom_owner_action(game, atom, player) {
   return R.evolve({
     atoms: R.map(R.when(R.propEq('id', atom.id),
                  R.evolve({owner: R.always(player.number)}))),
@@ -125,7 +143,7 @@ function update_atom_owner(game, atom, player) {
   }, game);
 }
 
-function insert_new_proton(game, atom) {
+function insert_new_proton_action(game, atom) {
   return R.evolve({
     atoms: R.map(R.when(R.propEq('id', atom.id), R.evolve({natoms: R.inc}))),
     players: rotate,
@@ -136,9 +154,9 @@ function insert_new_proton(game, atom) {
 function handle_atom_click(game, atom) {
   var cur_player = game.players[0];
   if (atom.owner === 0)
-    return update_atom_owner(game, atom, cur_player);
+    return update_atom_owner_action(game, atom, cur_player);
   if (atom.owner === cur_player.number)
-    return insert_new_proton(game, atom);
+    return handle_fissions(insert_new_proton_action(game, atom));
   return game;
 }
 
