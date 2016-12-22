@@ -178,8 +178,8 @@ function init_game() {
 }
 
 function install_onload(f) {
-  var old = document.onload;
-  document.onload = function () {
+  var old = window.onload;
+  window.onload = function () {
     f();
     if (old) old();
   };
