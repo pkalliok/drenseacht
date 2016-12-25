@@ -23,20 +23,33 @@ function game_area() {
 function create_atom_image(id) {
   var elem = new_elem('img');
   elem.id = id;
+  elem.className = 'atom';
   return elem;
+}
+
+function create_proton_image() {
+  var elem = new_elem('img');
+  elem.src = 'img/proton.png';
+  elem.className = 'proton';
+  return elem;
+}
+
+function show_element_at(e, pos) {
+  e.style.left = '' + Math.floor(pos[0]) + 'px';
+  e.style.top = '' + Math.floor(pos[1]) + 'px';
 }
 
 function update_atom_view(atom) {
   var e = atom.element;
-  e.style.left = '' + Math.floor(atom.pos[0]) + 'px';
-  e.style.top = '' + Math.floor(atom.pos[1]) + 'px';
+  show_element_at(e, atom.pos);
   e.className = 'atom' + (atom.owner !== 0 ? ' pl' + atom.owner : '');
-  e.src = 'img/' + atom.natoms + '-orbit.png';
+  e.src = 'img/' + atom.nprotons + '-orbit.png';
 }
 
 function build_new_stage(atoms) {
   var stage = new_elem('div');
-  atoms.forEach(function(atom) { stage.appendChild(atom.element); });
+  var stage_append = stage.appendChild.bind(stage);
+  R.map(R.prop('element'), atoms).forEach(stage_append);
   R.forEach(R.invoker(0, 'remove'), game_area().childNodes);
   game_area().appendChild(stage);
 }
@@ -68,7 +81,7 @@ function new_atom(id) {
     id: id,
     element: element,
     pos: random_position(element),
-    natoms: 1 + random_int(4)
+    nprotons: 1 + random_int(4)
   };
 }
 
@@ -93,7 +106,7 @@ function fix_atoms(atoms) {
 }
 
 function random_syllable() {
-  return pick_random(['hai', 'kan', 'tee', 'pu', 'hil', 'vat', 'ros', 'nul',
+  return pick_random(['hai', 'kan', 'tee', 'pu', 'hil', 'vat', 'ros', 'nul', 'nas',
       'li', 'ge', 'toh', 'ma', 'wuk', 'ur', 'roo', 'niu', 'koi', 'me', 'ta']);
 }
 
@@ -108,6 +121,7 @@ function new_game_state(natoms) {
   return {
     atoms: fix_atoms(fix_atoms(random_atoms(natoms))),
     players: R.map(random_player, R.range(1, 3)),
+    protons: [],
     prevstate: null
   };
 }
@@ -115,19 +129,71 @@ function new_game_state(natoms) {
 // chain reactions
 
 function handle_fissions(game) {
-  var player = R.last(game.players);
-  var reactible = R.filter(R.compose(R.lt(4), R.prop('natoms')), game.atoms);
+  var reactible = R.filter(R.compose(R.lt(4), R.prop('nprotons')), game.atoms);
   if (R.isEmpty(reactible)) return game;
-  var targets = R.chain(function(atom) {
-    return R.take(4, R.tail(R.sortBy(R.partial(atom_distance, [atom]), game.atoms)));
+  var protons = R.chain(function(srcatom) {
+    return R.compose(
+            R.map(function (dstatom) {
+              return { phase: 0, src: srcatom.id,
+                owner: srcatom.owner, dst: dstatom.id };
+            }),
+            R.take(4),
+            R.tail,
+            R.sortBy(R.partial(atom_distance, [srcatom])))(game.atoms);
   }, reactible);
-  return handle_fissions(R.evolve({
-    atoms: R.map(R.compose(
-       R.when(R.contains(R.__, reactible),
-         R.evolve({ natoms: R.add(-4) })),
-       R.when(R.contains(R.__, targets),
-         R.evolve({ natoms: R.inc, owner: R.always(player.number) }))))
-  }, game));
+  return R.evolve({
+    atoms: R.map(R.when(R.contains(R.__, reactible),
+                 R.evolve({ nprotons: R.add(-4) }))),
+    protons: R.concat(protons)
+  }, game);
+}
+
+function merge_protons(game) {
+  var dsts = R.groupBy(R.prop('dst'), game.protons);
+  return R.evolve({
+    atoms: R.map(function (atom) {
+      var incoming = dsts[atom.id];
+      if (!incoming) return atom;
+      return R.evolve({
+        nprotons: R.add(R.length(incoming)),
+        owner: R.always(R.head(incoming).owner)
+      }, atom);
+    }),
+    protons: R.always([])
+  }, game);
+}
+
+// proton animations
+
+var req_frame = window.requestAnimationFrame.bind(window);
+
+function proton_animation_frame(phase, protons) {
+  protons.forEach(function (proton) {
+    var pos = R.zipWith(R.add,
+        R.map(R.multiply(phase), proton.dst),
+        R.map(R.multiply(1-phase), proton.src));
+    show_element_at(proton.elem, pos);
+  }); 
+  if (phase < 1) {
+    req_frame(function () {
+      proton_animation_frame(phase + .03, protons);
+    });
+  } else {
+    R.map(R.prop('elem'), protons).forEach(R.invoker(0, 'remove'));
+  }
+}
+
+function animate_protons(protons, atoms) {
+  var id_to_pos = R.prop(R.__,
+      R.fromPairs(R.map(R.juxt([R.prop('id'), R.prop('pos')]), atoms)));
+  var prot_pos = R.map(R.compose(R.evolve({ src: id_to_pos, dst: id_to_pos,
+    elem: function (x) { return create_proton_image(); } }), R.assoc('elem', [])),
+      protons);
+  var to_game_area = game_area().appendChild.bind(game_area());
+  R.map(R.prop('elem'), prot_pos).forEach(to_game_area);
+  req_frame(function () {
+    proton_animation_frame(0, prot_pos);
+  });
 }
 
 // event handling
@@ -145,7 +211,7 @@ function update_atom_owner_action(game, atom, player) {
 
 function insert_new_proton_action(game, atom) {
   return R.evolve({
-    atoms: R.map(R.when(R.propEq('id', atom.id), R.evolve({natoms: R.inc}))),
+    atoms: R.map(R.when(R.propEq('id', atom.id), R.evolve({ nprotons: R.inc }))),
     players: rotate,
     prevstate: R.always(game)
   }, game);
@@ -153,10 +219,11 @@ function insert_new_proton_action(game, atom) {
 
 function handle_atom_click(game, atom) {
   var cur_player = game.players[0];
+  var new_game = R.assoc('last_player', cur_player, game);
   if (atom.owner === 0)
-    return update_atom_owner_action(game, atom, cur_player);
+    return update_atom_owner_action(new_game, atom, cur_player);
   if (atom.owner === cur_player.number)
-    return handle_fissions(insert_new_proton_action(game, atom));
+    return handle_fissions(insert_new_proton_action(new_game, atom));
   return game;
 }
 
@@ -167,6 +234,11 @@ function update_game(game) {
       update_game(handle_atom_click(game, atom));
     };
   });
+  if (!R.isEmpty(game.protons)) {
+    animate_protons(game.protons, game.atoms);
+    setTimeout(function() { update_game(handle_fissions(merge_protons(game))); },
+        500);
+  }
 }
 
 // initialisation
@@ -186,4 +258,6 @@ function install_onload(f) {
 }
 
 install_onload(init_game);
+
+// vim:set sw=2 et:
 
