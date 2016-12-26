@@ -57,14 +57,28 @@ function build_new_stage(atoms) {
 // atom helpers
 
 function atom_distance(atom1, atom2) {
-  var diff = atom_direction(atom1, atom2);
+  return posdiff_length(atom_direction(atom1, atom2));
+}
+
+function posdiff_length(diff) {
   return Math.sqrt(R.sum(R.zipWith(R.multiply, diff, diff)));
 }
 
 function atom_direction(atom1, atom2) {
-  var p1 = atom1.pos, p2 = atom2.pos;
-  return R.zipWith(R.subtract, p1, p2);
+  return pos_difference(atom1.pos, atom2.pos);
 }
+
+var pos_difference = R.zipWith(R.subtract);
+
+function atom_displace(atom, pos_delta) {
+  return R.evolve({pos: pos_add(pos_delta)}, atom);
+}
+
+var pos_add = R.zipWith(R.add);
+
+var posdiff_multiply = R.curry(function (factor, diff) {
+  return R.map(R.multiply(factor), diff);
+});
 
 // stage generation
 
@@ -87,17 +101,13 @@ function new_atom(id) {
 
 var random_atoms = R.compose(R.map(new_atom), R.range(1));
 
-function atom_displace(atom, pos_delta) {
-  return R.evolve({'pos': R.zipWith(R.add, pos_delta)}, atom);
-}
-
 function nudge_away(atom, other_atom) {
   if (atom.id === other_atom.id) return atom;
   var dist = atom_distance(atom, other_atom);
   if (dist > ATOM_SIZE) return atom;
   if (dist < 1) return atom_displace(atom, [ATOM_SIZE, 0]);
   return atom_displace(atom,
-      R.map(R.multiply((ATOM_SIZE - dist) / (dist + 1)),
+      posdiff_multiply((ATOM_SIZE - dist) / (dist + 1),
         atom_direction(atom, other_atom)));
 }
 
@@ -154,8 +164,21 @@ function merge_protons(game) {
     atoms: R.map(function (atom) {
       var incoming = dsts[atom.id];
       if (!incoming) return atom;
+
+      var src_ids = R.map(R.prop('src'), incoming);
+      var src_pos = R.compose(
+          posdiff_multiply(1 / incoming.length),
+          R.reduce(pos_add, [0, 0]),
+          R.map(R.prop('pos')),
+          R.filter(R.compose(R.contains(R.__, src_ids),
+              R.prop('id'))))(game.atoms);
+
+      var diff = pos_difference(atom.pos, src_pos);
+      var dist = posdiff_length(diff);
+
       return R.evolve({
         nprotons: R.add(R.length(incoming)),
+        pos: pos_add(posdiff_multiply(8 / (dist + 1), diff)),
         owner: R.always(R.head(incoming).owner)
       }, atom);
     }),
