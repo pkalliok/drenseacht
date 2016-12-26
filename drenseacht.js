@@ -15,6 +15,7 @@ function pick_random(list) {
 // DOM handling
 
 var new_elem = document.createElement.bind(document);
+var text_elem = document.createTextNode.bind(document);
 
 function game_area() {
   return document.getElementById('gamearea');
@@ -58,15 +59,31 @@ function build_new_stage(atoms) {
   game_area().appendChild(stage);
 }
 
-function render_game(game) {
-  game.atoms.forEach(update_atom_view);
+function make_playerlist(players) {
   var playerlist = new_elem('div');
-  game.players.forEach(function (player) {
+  players.forEach(function (player) {
     var plelem = new_elem('p');
     plelem.className = 'playername pl' + player.number;
-    plelem.appendChild(document.createTextNode(player.name));
+    plelem.appendChild(text_elem(player.name));
     playerlist.appendChild(plelem);
   });
+  return playerlist;
+}
+
+function moreplayer_btn(game) {
+  var moreplayers = new_elem('p');
+  moreplayers.className = 'playername';
+  moreplayers.appendChild(text_elem('+++'));
+  moreplayers.onclick = function () { update_game(add_one_player(game)); };
+  return moreplayers;
+}
+
+function render_game(game) {
+  game.atoms.forEach(update_atom_view);
+  var playerlist = make_playerlist(game.players);
+  if (game.players.length < 5) {
+    playerlist.appendChild(moreplayer_btn(game));
+  }
   R.forEach(R.invoker(0, 'remove'), players_area().childNodes);
   players_area().appendChild(playerlist);
 }
@@ -112,7 +129,7 @@ function new_atom(id) {
     id: id,
     element: element,
     pos: random_position(element),
-    nprotons: 1 + random_int(4)
+    nprotons: 1 + random_int(3)
   };
 }
 
@@ -265,6 +282,11 @@ function handle_atom_click(game, atom) {
   if (atom.owner === cur_player.number)
     return handle_fissions(insert_new_proton_action(new_game, atom));
   return game;
+}
+
+function add_one_player(game) {
+  var next_num = R.reduce(R.max, 0, R.map(R.prop('number'), game.players)) + 1;
+  return R.evolve({ players: R.append(random_player(next_num)) }, game);
 }
 
 function update_game(game) {
