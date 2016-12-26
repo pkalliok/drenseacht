@@ -228,16 +228,17 @@ function handle_atom_click(game, atom) {
 }
 
 function update_game(game) {
-  game.atoms.forEach(function(atom) {
-    update_atom_view(atom);
-    atom.element.onclick = function() {
-      update_game(handle_atom_click(game, atom));
-    };
-  });
+  game.atoms.forEach(update_atom_view);
   if (!R.isEmpty(game.protons)) {
     animate_protons(game.protons, game.atoms);
     setTimeout(function() { update_game(handle_fissions(merge_protons(game))); },
         500);
+  } else {
+    game.atoms.forEach(function(atom) {
+      atom.element.onclick = function() {
+        update_game(handle_atom_click(game, atom));
+      };
+    });
   }
 }
 
