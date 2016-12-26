@@ -151,7 +151,8 @@ function fix_atoms(atoms) {
 
 function random_syllable() {
   return pick_random(['hai', 'kan', 'tee', 'pu', 'hil', 'vat', 'ros', 'nul', 'nas',
-      'li', 'ge', 'toh', 'ma', 'wuk', 'ur', 'roo', 'niu', 'koi', 'me', 'ta']);
+      'li', 'ge', 'toh', 'ma', 'wuk', 'ur', 'roo', 'niu', 'koi', 'me', 'ta', 'am',
+      'va', 'hu', 'bo', 'laa', 'pei', 'mir', 'eh', 'sa', 'lou', 'ju']);
 }
 
 function random_player(number) {
