@@ -59,9 +59,10 @@ function build_new_stage(atoms) {
   game_area().appendChild(stage);
 }
 
-function make_playerlist(players) {
+function make_playerlist(game) {
   var playerlist = new_elem('div');
-  players.forEach(function (player) {
+  if (game.prevstate) playerlist.appendChild(undo_btn(game));
+  game.players.forEach(function (player) {
     var plelem = new_elem('p');
     plelem.className = 'playername pl' + player.number;
     plelem.appendChild(text_elem(player.name));
@@ -78,9 +79,17 @@ function moreplayer_btn(game) {
   return moreplayers;
 }
 
+function undo_btn(game) {
+  var undo = new_elem('img');
+  undo.className = 'undo';
+  undo.src = 'img/undo.png';
+  undo.onclick = function () { update_game(game.prevstate); };
+  return undo;
+}
+
 function render_game(game) {
   game.atoms.forEach(update_atom_view);
-  var playerlist = make_playerlist(game.players);
+  var playerlist = make_playerlist(game);
   if (game.players.length < 5) {
     playerlist.appendChild(moreplayer_btn(game));
   }
@@ -287,7 +296,10 @@ function handle_atom_click(game, atom) {
 
 function add_one_player(game) {
   var next_num = R.reduce(R.max, 0, R.map(R.prop('number'), game.players)) + 1;
-  return R.evolve({ players: R.append(random_player(next_num)) }, game);
+  return R.evolve({
+    players: R.append(random_player(next_num)),
+    prevstate: R.always(game)
+  }, game);
 }
 
 function update_game(game) {

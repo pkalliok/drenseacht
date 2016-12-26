@@ -26,6 +26,10 @@ body {
   color: #c8c;
 }
 
+.undo {
+  float: right;
+}
+
 .atom, .proton {
   position: absolute;
   width: 80px;
