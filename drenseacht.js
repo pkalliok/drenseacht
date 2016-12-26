@@ -20,6 +20,10 @@ function game_area() {
   return document.getElementById('gamearea');
 }
 
+function players_area() {
+  return document.getElementById('players');
+}
+
 function create_atom_image(id) {
   var elem = new_elem('img');
   elem.id = id;
@@ -52,6 +56,19 @@ function build_new_stage(atoms) {
   R.map(R.prop('element'), atoms).forEach(stage_append);
   R.forEach(R.invoker(0, 'remove'), game_area().childNodes);
   game_area().appendChild(stage);
+}
+
+function render_game(game) {
+  game.atoms.forEach(update_atom_view);
+  var playerlist = new_elem('div');
+  game.players.forEach(function (player) {
+    var plelem = new_elem('p');
+    plelem.className = 'playername pl' + player.number;
+    plelem.appendChild(document.createTextNode(player.name));
+    playerlist.appendChild(plelem);
+  });
+  R.forEach(R.invoker(0, 'remove'), players_area().childNodes);
+  players_area().appendChild(playerlist);
 }
 
 // atom helpers
@@ -251,7 +268,7 @@ function handle_atom_click(game, atom) {
 }
 
 function update_game(game) {
-  game.atoms.forEach(update_atom_view);
+  render_game(game);
   if (!R.isEmpty(game.protons)) {
     animate_protons(game.protons, game.atoms);
     setTimeout(function() { update_game(handle_fissions(merge_protons(game))); },

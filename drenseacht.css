@@ -8,6 +8,7 @@ html, body, #gamearea {
 #players {
   border: 2px #046 solid;
   position: absolute;
+  padding: 10px;
   width: 20%;
   height: 50%;
   right: 15px;
@@ -18,6 +19,11 @@ html, body, #gamearea {
 
 body {
   background: url("img/background.png");
+}
+
+.playername {
+  font-size: 24pt;
+  color: #c8c;
 }
 
 .atom, .proton {
