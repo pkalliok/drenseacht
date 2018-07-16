@@ -197,7 +197,7 @@ function handle_fissions(game) {
   }, reactible);
   return R.evolve({
     atoms: R.map(R.when(R.contains(R.__, reactible),
-                 R.evolve({ nprotons: R.add(-4) }))),
+                        R.evolve({ nprotons: R.add(-4) }))),
     protons: R.concat(protons)
   }, game);
 }
